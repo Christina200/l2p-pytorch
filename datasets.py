@@ -10,6 +10,7 @@
 import random
 
 import torch
+import torchvision
 from torch.utils.data.dataset import Subset
 from torchvision import datasets, transforms
 
@@ -46,17 +47,20 @@ def build_continual_dataloader(args):
     else:
         if args.dataset == '5-datasets':
             dataset_list = ['SVHN', 'MNIST', 'CIFAR10', 'NotMNIST', 'FashionMNIST']
+        elif args.dataset == 'core50':
+            splited_dataset, class_mask = split_core50_datasets()
+            args.nb_classes = 50
         else:
             dataset_list = args.dataset.split(',')
         
-        if args.shuffle:
-            random.shuffle(dataset_list)
-        print(dataset_list)
+        # if args.shuffle:
+        #     random.shuffle(dataset_list)
+        # print(dataset_list)
     
-        args.nb_classes = 0
+        # args.nb_classes = 0
 
     for i in range(args.num_tasks):
-        if args.dataset.startswith('Split-'):
+        if args.dataset.startswith('Split-') or args.dataset == 'core50':
             dataset_train, dataset_val = splited_dataset[i]
 
         else:
@@ -190,6 +194,42 @@ def split_single_dataset(dataset_train, dataset_val, args):
 
         split_datasets.append([subset_train, subset_val])
     
+    return split_datasets, mask
+
+def split_core50_datasets():
+    split_datasets = list()
+    mask = list()
+    transform = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+    ])
+    base_path = '/home/xw6956/fa2023/OnlineLoRA-ViT/core50_128x128'
+    train_tasks = ['s1', 's2', 's4', 's5', 's6', 's8', 's9', 's11']
+    test_tasks = ['s3', 's7', 's10']
+
+    # Combine test datasets
+    combined_test_datasets = []
+    for task in test_tasks:
+        dataset_path = f'{base_path}/{task}'
+        test_dataset = torchvision.datasets.ImageFolder(root=dataset_path, transform=transform)
+        combined_test_datasets.append(test_dataset)
+    combined_test_dataset = torch.utils.data.ConcatDataset(combined_test_datasets)
+
+    test_split_size = len(combined_test_dataset) // len(train_tasks)
+    test_indices = torch.randperm(len(combined_test_dataset)).tolist()
+
+    for i, task in enumerate(train_tasks):
+        dataset_path = f'{base_path}/{task}'
+        train_dataset = torchvision.datasets.ImageFolder(root=dataset_path, transform=transform)
+
+        # Determine the indices for this task's test data
+        test_split_indices = test_indices[i * test_split_size: (i + 1) * test_split_size]
+        if i == len(train_tasks) - 1:  # Ensure the last split includes any remaining data
+            test_split_indices = test_indices[i * test_split_size:]
+        test_split_dataset = torch.utils.data.Subset(combined_test_dataset, test_split_indices)
+
+        split_datasets.append([train_dataset, test_split_dataset])
+
     return split_datasets, mask
 
 def build_transform(is_train, args):

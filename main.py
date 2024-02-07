@@ -26,8 +26,49 @@ from engine import *
 import models
 import utils
 
+import torchvision.transforms as transforms
+import torchvision
+
 import warnings
 warnings.filterwarnings('ignore', 'Argument interpolation should be of type InterpolationMode instead of int')
+
+def CORE50Dataloader():
+    dataloader = list()
+    class_mask = None
+    transform = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+    ])
+    base_path = '/home/xw6956/fa2023/OnlineLoRA-ViT/core50_128x128'
+    train_tasks = ['s1', 's2', 's4', 's5', 's6', 's8', 's9', 's11']
+    test_tasks = ['s3', 's7', 's10']
+
+    # Combine test datasets
+    combined_test_datasets = []
+    for task in test_tasks:
+        dataset_path = f'{base_path}/{task}'
+        test_dataset = torchvision.datasets.ImageFolder(root=dataset_path, transform=transform)
+        combined_test_datasets.append(test_dataset)
+    combined_test_dataset = torch.utils.data.ConcatDataset(combined_test_datasets)
+
+    test_split_size = len(combined_test_dataset) // len(train_tasks)
+    test_indices = torch.randperm(len(combined_test_dataset)).tolist()
+
+    for i, task in enumerate(train_tasks):
+        dataset_path = f'{base_path}/{task}'
+        train_dataset = torchvision.datasets.ImageFolder(root=dataset_path, transform=transform)
+        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=4, shuffle=True)
+
+        # Determine the indices for this task's test data
+        test_split_indices = test_indices[i * test_split_size: (i + 1) * test_split_size]
+        if i == len(train_tasks) - 1:  # Ensure the last split includes any remaining data
+            test_split_indices = test_indices[i * test_split_size:]
+        test_split_dataset = torch.utils.data.Subset(combined_test_dataset, test_split_indices)
+        test_loader = torch.utils.data.DataLoader(test_split_dataset, batch_size=4, shuffle=True)
+
+        dataloader.append({'train': train_loader, 'val': test_loader})
+
+    return dataloader, class_mask
 
 def main(args):
     utils.init_distributed_mode(args)
@@ -43,6 +84,7 @@ def main(args):
     cudnn.benchmark = True
 
     data_loader, class_mask = build_continual_dataloader(args)
+    # data_loader, class_mask = CORE50Dataloader() # core50
 
     print(f"Creating original model: {args.model}")
     original_model = create_model(
@@ -152,6 +194,12 @@ if __name__ == '__main__':
     elif config == 'five_datasets_l2p':
         from configs.five_datasets_l2p import get_args_parser
         config_parser = subparser.add_parser('five_datasets_l2p', help='5-Datasets L2P configs')
+    elif config == 'cifar10_l2p':
+        from configs.cifar10_l2p import get_args_parser
+        config_parser = subparser.add_parser('cifar10_l2p', help='Split-CIFAR10 L2P configs')
+    elif config == 'core50_l2p':
+        from configs.core50_l2p import get_args_parser
+        config_parser = subparser.add_parser('core50_l2p', help='CORe50 L2P configs')
     else:
         raise NotImplementedError
     

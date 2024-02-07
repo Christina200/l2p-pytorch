@@ -1,7 +1,7 @@
 import argparse
 
 def get_args_parser(subparsers):
-    subparsers.add_argument('--batch-size', default=16, type=int, help='Batch size per device')
+    subparsers.add_argument('--batch-size', default=8, type=int, help='Batch size per device')
     subparsers.add_argument('--epochs', default=1, type=int)
 
     # Model parameters
@@ -10,6 +10,7 @@ def get_args_parser(subparsers):
     subparsers.add_argument('--pretrained', default=True, help='Load pretrained model or not')
     subparsers.add_argument('--drop', type=float, default=0.0, metavar='PCT', help='Dropout rate (default: 0.)')
     subparsers.add_argument('--drop-path', type=float, default=0.0, metavar='PCT', help='Drop path rate (default: 0.)')
+    subparsers.add_argument('--nb_classes', type=int, default=50, help='number of classes')
 
     # Optimizer parameters
     subparsers.add_argument('--opt', default='adam', type=str, metavar='OPTIMIZER', help='Optimizer (default: "adam"')
@@ -51,7 +52,7 @@ def get_args_parser(subparsers):
 
     # Data parameters
     subparsers.add_argument('--data-path', default='./datasets', type=str, help='dataset path')
-    subparsers.add_argument('--dataset', default='Split-CIFAR100', type=str, help='dataset name')
+    subparsers.add_argument('--dataset', default='core50', type=str, help='dataset name')
     subparsers.add_argument('--shuffle', default=False, help='shuffle the data order')
     subparsers.add_argument('--output_dir', default='./output', help='path where to save, empty for no saving')
     subparsers.add_argument('--device', default='cuda', help='device to use for training / testing')
@@ -70,7 +71,7 @@ def get_args_parser(subparsers):
     subparsers.add_argument('--dist_url', default='env://', help='url used to set up distributed training')
 
     # Continual learning parameters
-    subparsers.add_argument('--num_tasks', default=10, type=int, help='number of sequential tasks')
+    subparsers.add_argument('--num_tasks', default=8, type=int, help='number of sequential tasks')
     subparsers.add_argument('--train_mask', default=False, type=bool, help='if using the class mask at training')
     subparsers.add_argument('--task_inc', default=False, type=bool, help='if doing task incremental')
 
